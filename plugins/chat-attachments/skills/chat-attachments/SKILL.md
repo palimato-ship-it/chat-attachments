@@ -1,6 +1,6 @@
 ---
 name: chat-attachments
-description: Show the Chat compression menu (also Chat compresion), scan local Codex chat attachments, shrink embedded images while preserving originals, retrieve full originals, or configure per-chat automatic conversion after a custom age. Use for chat-history attachment storage, not general disk cleanup or model-context compaction.
+description: Set up Chat Attachments, show its new-chat Chat compression menu (also Chat compresion), scan local Codex chat attachments, shrink embedded images while preserving originals, retrieve full originals, or configure per-chat automatic conversion after a custom age. Use for chat-history attachment storage, not general disk cleanup or model-context compaction.
 ---
 
 # Chat Attachments
@@ -9,6 +9,33 @@ Use the bundled local MCP tools for the exact selected chat ID from trusted
 app/session metadata. Never guess an ID from a title or enable every chat by
 default. Respect the user's project-work and validation approval directive.
 This plugin operates on locally stored histories, not remote server histories.
+
+## Setup and new-chat onboarding
+
+A bundled SessionStart hook supplies the menu for the first assistant response in
+new chats (startup, clear, fork). It requires the app’s explicit hook trust review;
+installation does not grant hook trust. Do not bypass that review or change the
+user’s trust settings. It supplies context, not an empty-chat UI card, and must not
+trigger a history scan or conversion. Resume/compaction should not repeat the menu.
+
+After the hook is trusted it attempts first-use Pillow/native-timer setup once per
+package/version. Python with pip/venv must already be available. No chat timer is
+enabled by setup. Subsequent chats reuse the runtime; failed automatic attempts
+wait for an explicit setup request rather than retrying downloads on every chat.
+`CHAT_ATTACHMENTS_AUTO_SETUP=0` keeps menu onboarding but disables automatic setup.
+
+Recognize “Set up Chat Attachments” and menu option 8 as requests to install/repair
+Pillow in the plugin’s dedicated environment and register the OS user timer.
+Explain dependency downloads and timer registration, preserve existing policies,
+respect any project-work approval scope, then call `setup_runtime(approved: true)`.
+The `setup_status` and `setup_runtime` MCP tools work without Pillow. Report a
+partial/failed timer registration honestly; never say setup is complete if only
+the image runtime was installed. If tools are not loaded, run the bundled
+`server.py setup --approved` with available Python (Windows: `py -3`), or inspect
+`server.py setup-status`. The installed package is self-contained; cloning this
+repository is not required for the setup action. Do not recommend a restart as a
+substitute for installing missing dependencies. Updated hooks require review/trust
+again when their definition changes.
 
 ## Chat compression menu
 
@@ -26,6 +53,7 @@ menu, not a native application toolbar or dialog.
 5. **Show timer status**.
 6. **Disable automatic compression**.
 7. **Find a full-resolution original**.
+8. **Set up Chat Attachments** — install/repair Pillow and the background timer.
 
 End with “Reply with an option number; for option 4, include the period, for example
 ‘4 — 7 days’.” Include one short reminder that previews use JPEG quality 20 and
@@ -53,6 +81,8 @@ rule and reusing any already-approved exact scope rather than asking again:
   workflow. Do not remove the app-wide scheduler or affect other chats.
 - **7:** ask which image if unclear; scan to identify its content ID, then call
   `original_file`. Return/open the original path, preserving its original extension.
+
+- **8:** follow the setup workflow above; this does not scan/compress a chat or enable its timer.
 
 After an action, briefly report its actual result. Show the menu again on request.
 Explicit direct requests such as “scan this chat” still go straight to their normal
@@ -108,12 +138,12 @@ path. To show an unchanged original, prefer a clickable file link or file panel
 instead of re-embedding its binary. The per-chat index survives context compaction.
 
 If tools are not loaded, `server.py` is two directories above this skill folder.
-Use the Python interpreter recorded in the plugin's `.mcp.json` (its dedicated
-virtual environment). CLI actions: `scan --thread-id ID`, `plan --thread-id ID`,
+The MCP entry point uses only Python’s standard library and delegates image
+operations to the managed environment; use an available Python interpreter. CLI actions: `scan --thread-id ID`, `plan --thread-id ID`,
 `convert --plan-id ID --approved`, `original --thread-id ID --media-id HASH`,
 `automatic --thread-id ID --period "7 days" --approved`,
 `automatic --thread-id ID --period "7 days" --disable --approved`, and
 `status --thread-id ID`. Newly installed tools/skills may need a new chat or app
-restart. The root installer registers the plugin and native background service.
+restart. The root installer is an optional CLI alternative; the installed package supports its own setup action.
 Do not add unapproved tests/reruns or access another host. See the package README
 for installation, platform requirements, concurrency limits and recovery.

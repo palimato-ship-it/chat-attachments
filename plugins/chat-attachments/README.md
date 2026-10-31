@@ -1,7 +1,9 @@
-# Chat Attachments 0.2.1
+# Chat Attachments 0.3.0
 
 Local Codex attachment previews, full originals and opt-in per-chat timers.
-See the [repository installation guide](../../README.md) for marketplace and runtime setup.
+See the [repository installation guide](../../README.md) for marketplace setup.
+Version 0.3.0 includes trusted first-use setup and a SessionStart starting menu.
+You can also request **Set up Chat Attachments** or select option 8 without Pillow.
 
 Say **Chat compression** (or **Chat compresion**) to show the numbered conversation
 menu: scan, compress all now, enable a timer, change its period, show status, disable
@@ -16,8 +18,9 @@ A saved, approved timer policy authorizes future conversions without per-run pro
 
 From the project root run `python3 install.py` (Windows: `py install.py`). Python
 3.10+ with available Pillow wheels, pip/venv and the Codex CLI on PATH are required.
-The installer creates a dedicated `.venv`, installs Pillow, refreshes the local
-native plugin, and installs the current user's background scheduler:
+The installer registers the local native plugin and uses the managed environment
+under `<CODEX_HOME>/chat-attachments/environment` to install Pillow and the current
+user’s background scheduler:
 
 - macOS: LaunchAgent `peli.chat-attachments.timer` (launchd).
 - Windows: same-name Task Scheduler task, interactive current user, no password.
@@ -32,13 +35,19 @@ startup definitions are checked on Mac; real native startup trials remain pendin
 This does not assert Codex desktop availability on every distribution/OS version.
 It supports the local Codex history/display schema described below, where present.
 
-The public installer binds the installed MCP cache to this computer’s virtual
-environment without writing absolute machine paths into tracked source. Moving
-the project or copying it to another OS requires rerunning setup there; a copied
-virtual environment is not portable. See the root guide for `--runtime-only`
-after installing through the app marketplace. Reopen the app or start a new chat
-to load updated tools. No account/API key/network listener is used by the timer.
-Pillow is free; dependency installation downloads it from the Python package index.
+The MCP entry point works without Pillow, so setup tools remain available even
+before the image library is installed. A dedicated runtime under
+`<CODEX_HOME>/chat-attachments/environment` is reused across chats and updates.
+First-use automatic setup runs only after the bundled SessionStart hook is trusted.
+The hook supplies a first-response menu for startup/clear/fork, not an empty-chat
+UI card. Resume/compaction do not repeat it. Python with pip/venv must be installed;
+Windows uses the Python launcher for its hook. Set `CHAT_ATTACHMENTS_AUTO_SETUP=0`
+to keep the menu while disabling automatic dependency/timer setup. Setup failures
+are recorded; use option 8 to retry rather than restarting blindly.
+
+Installing or trusting setup never enables image conversion for any chat. Existing
+policies are preserved. If native timer registration fails, setup reports partial
+success; scans/manual conversion can still use the installed image library.
 
 ## Images, age and originals
 

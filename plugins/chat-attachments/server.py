@@ -5,7 +5,7 @@ import json
 import sys
 
 from history import AttachmentError
-from service import Service
+from runtime import invoke_worker, setup_runtime, setup_status
 
 TOOLS = [
     {'name': 'scan_chat', 'description': 'Read the selected local Codex chat’s complete history and report embedded files, duplicates, origins, external references and already-processed images. Does not modify history.',
@@ -28,6 +28,13 @@ TOOLS = [
      'inputSchema': {'type': 'object', 'properties': {'thread_id': {'type': 'string'}}, 'required': ['thread_id'], 'additionalProperties': False},
      'annotations': {'readOnlyHint': True, 'destructiveHint': False, 'idempotentHint': True, 'openWorldHint': False}},
 
+    {'name': 'setup_runtime', 'description': 'On an explicit setup request, install/repair Pillow in a dedicated local environment and register the native user timer. Downloads dependencies. Preserves existing chat timer policies and enables no chats.',
+     'inputSchema': {'type': 'object', 'properties': {'approved': {'type': 'boolean'}}, 'required': ['approved'], 'additionalProperties': False},
+     'annotations': {'readOnlyHint': False, 'destructiveHint': False, 'idempotentHint': True, 'openWorldHint': True}},
+    {'name': 'setup_status', 'description': 'Report local image runtime/setup readiness, timer registration marker and last safe setup error without requiring Pillow.',
+     'inputSchema': {'type': 'object', 'properties': {}, 'required': [], 'additionalProperties': False},
+     'annotations': {'readOnlyHint': True, 'destructiveHint': False, 'idempotentHint': True, 'openWorldHint': False}},
+
 ]
 
 
@@ -42,11 +49,15 @@ def invoke(service, name, arguments):
         kind = schema['properties'][key]['type']
         if (kind == 'string' and not isinstance(value, str)) or (kind == 'boolean' and not isinstance(value, bool)):
             raise AttachmentError('invalid_arguments', 'A tool argument has an incorrect type.')
-    return getattr(service, name)(**arguments)
+    if name == 'setup_runtime':
+        return setup_runtime(**arguments)
+    if name == 'setup_status':
+        return setup_status()
+    return getattr(service, name)(**arguments) if service is not None else invoke_worker(name, arguments)
 
 
 def serve():
-    service = Service()
+    service = None
     for line in sys.stdin:
         request = {}
         try:
@@ -59,8 +70,8 @@ def serve():
             if method == 'initialize':
                 result = {'protocolVersion': params.get('protocolVersion', '2025-06-18'),
                           'capabilities': {'tools': {'listChanged': False}},
-                          'serverInfo': {'name': 'chat-attachments', 'version': '0.2.1'},
-                          'instructions': 'Manual conversion needs approval. Per-chat automatic policies require explicit user authorization once; the installed background timer then processes eligible old images without repeated prompts. Originals remain local.'}
+                          'serverInfo': {'name': 'chat-attachments', 'version': '0.3.0'},
+                          'instructions': 'Use setup_runtime on an explicit setup request if first-use setup is incomplete; setup tools do not need Pillow. Manual conversion requires approval. Per-chat timers require explicit opt-in. Originals remain local.'}
             elif method == 'ping':
                 result = {}
             elif method == 'tools/list':
@@ -100,21 +111,24 @@ def cli():
     child.add_argument('--approved', action='store_true')
     child = sub.add_parser('status')
     child.add_argument('--thread-id', required=True)
+    child = sub.add_parser('setup')
+    child.add_argument('--approved', action='store_true')
+    sub.add_parser('setup-status')
     args = parser.parse_args()
-    service = Service()
+    service = None
     try:
-        if args.action == 'scan':
-            result = service.scan_chat(args.thread_id)
-        elif args.action == 'plan':
-            result = service.plan_conversion(args.thread_id)
-        elif args.action == 'automatic':
-            result = service.configure_automatic(args.thread_id, args.period, not args.disable, args.approved)
-        elif args.action == 'status':
-            result = service.automatic_status(args.thread_id)
-        elif args.action == 'original':
-            result = service.original_file(args.thread_id, args.media_id)
-        else:
-            result = service.apply_conversion(args.plan_id, args.approved)
+        mapping = {
+            'scan': ('scan_chat', lambda: {'thread_id': args.thread_id}),
+            'plan': ('plan_conversion', lambda: {'thread_id': args.thread_id}),
+            'original': ('original_file', lambda: {'thread_id': args.thread_id, 'media_id': args.media_id}),
+            'automatic': ('configure_automatic', lambda: {'thread_id': args.thread_id, 'period': args.period, 'enabled': not args.disable, 'approved': args.approved}),
+            'status': ('automatic_status', lambda: {'thread_id': args.thread_id}),
+            'convert': ('apply_conversion', lambda: {'plan_id': args.plan_id, 'approved': args.approved}),
+            'setup': ('setup_runtime', lambda: {'approved': args.approved}),
+            'setup-status': ('setup_status', lambda: {}),
+        }
+        name, arguments = mapping[args.action]
+        result = invoke(service, name, arguments())
         print(json.dumps(result, ensure_ascii=False))
     except AttachmentError as error:
         print(json.dumps({'error': {'code': error.code, 'message': str(error)}}))
@@ -122,4 +136,13 @@ def cli():
 
 
 if __name__ == '__main__':
-    cli() if len(sys.argv) > 1 else serve()
+    if len(sys.argv) == 3 and sys.argv[1] == '--invoke':
+        try:
+            print(json.dumps({'ok': True, 'value': invoke(None, sys.argv[2], json.load(sys.stdin))}))
+        except AttachmentError as error:
+            print(json.dumps({'ok': False, 'error': {'code': error.code, 'message': str(error)}}))
+        except Exception as error:
+            print('Chat Attachments worker failed: ' + type(error).__name__, file=sys.stderr)
+            print(json.dumps({'ok': False, 'error': {'code': 'operation_failed', 'message': 'The local operation failed. Preserve its backup/status before retrying.'}}))
+    else:
+        cli() if len(sys.argv) > 1 else serve()

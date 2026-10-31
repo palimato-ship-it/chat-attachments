@@ -1,6 +1,6 @@
 {
   "name": "chat-attachments",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Scan local Codex attachments, shrink embedded images, and keep full originals with recoverable backups.",
   "author": {
     "name": "Peli"
@@ -10,7 +10,7 @@
   "interface": {
     "displayName": "Chat Attachments",
     "shortDescription": "Smaller chat images, full originals preserved",
-    "longDescription": "Local chat scans, approved JPEG previews, full original lookup, and opt-in per-chat automatic conversion with custom image ages. macOS/Windows/Linux background timer; no remote-host changes.",
+    "longDescription": "Compress local chat images while keeping originals. Includes a new-chat menu and trusted first-use Pillow/timer setup, plus opt-in per-chat age-based compression.",
     "developerName": "Peli",
     "category": "Productivity",
     "capabilities": [
@@ -19,10 +19,12 @@
     ],
     "defaultPrompt": [
       "Chat compression",
+      "Set up Chat Attachments",
       "Scan this chat's attachments",
       "Show the original full-resolution image",
       "Automatically resize images in this chat after 2 days"
     ],
     "screenshots": []
-  }
+  },
+  "hooks": "./hooks/hooks.json"
 }

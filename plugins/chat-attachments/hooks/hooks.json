@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|clear|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/startup.py\"",
+            "commandWindows": "py -3 \"${PLUGIN_ROOT}/startup.py\"",
+            "statusMessage": "Preparing Chat Attachments and its starting menu",
+            "timeout": 360,
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ]
+  }
+}

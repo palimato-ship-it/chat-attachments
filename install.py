@@ -1,54 +1,33 @@
-"""Set up the image runtime, this plugin's cached MCP entry, and user timer."""
+"""Optional CLI installation; the installed plugin also has its own setup action."""
 from pathlib import Path
 import argparse
-import json
 import os
 import shutil
 import subprocess
 import sys
-import venv
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--runtime-only', action='store_true', help='Complete setup after installing through Add a marketplace; do not re-register the marketplace.')
-    parser.add_argument('--runtime-ready', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--runtime-only', action='store_true', help='Set up the local image runtime/timer without changing marketplace registration.')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
     package = root / 'plugins/chat-attachments'
-    if not args.runtime_ready:
-        environment = root / '.venv'
-        python = environment / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
-        if not python.is_file():
-            venv.EnvBuilder(with_pip=True).create(environment)
-        subprocess.run([str(python), '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(root / 'requirements.txt')], check=True)
-        command = [str(python), str(Path(__file__).resolve()), '--runtime-ready']
-        if args.runtime_only:
-            command.append('--runtime-only')
-        return subprocess.run(command).returncode
-    home = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
-    cached = home / 'plugins/cache/peli-local/chat-attachments'
     if not args.runtime_only:
         codex = shutil.which('codex')
         if not codex:
-            raise SystemExit('Put the Codex CLI on PATH, or install through the app and use --runtime-only.')
+            raise SystemExit('Put the Codex CLI on PATH, or use the app marketplace and --runtime-only.')
         subprocess.run([codex, 'plugin', 'marketplace', 'add', str(root), '--json'], check=True)
+        cached = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex'))) / 'plugins/cache/peli-local/chat-attachments'
         if cached.is_dir():
             subprocess.run([codex, 'plugin', 'remove', 'chat-attachments@peli-local', '--json'], check=True)
         subprocess.run([codex, 'plugin', 'add', 'chat-attachments@peli-local', '--json'], check=True)
-    # Bind this user's interpreter in the installed cache, never in tracked source.
-    # Future marketplace updates may replace it; rerun --runtime-only afterwards.
-    manifests = list(cached.glob('*/.codex-plugin/plugin.json')) if cached.is_dir() else []
-    if not manifests:
-        raise SystemExit('Install Chat Attachments from Peli Plugins in the app first, then rerun with --runtime-only.')
-    for manifest in manifests:
-        installed = manifest.parent.parent
-        config = {'mcpServers': {'attachments': {'command': sys.executable,
-                  'args': [str(installed / 'server.py')], 'env': {'PYTHONDONTWRITEBYTECODE': '1'},
-                  'startup_timeout_sec': 30}}}
-        (installed / '.mcp.json').write_text(json.dumps(config, indent=2) + '\n')
-    subprocess.run([sys.executable, str(package / 'scheduler.py'), 'install'], check=True)
-    print('Setup complete. Restart Codex, then say: Chat compression')
+    sys.path.insert(0, str(package))
+    from runtime import setup_runtime
+    result = setup_runtime(approved=True)
+    if not result['ready']:
+        raise SystemExit('Image runtime setup completed partially: ' + str(result.get('last_error')))
+    print('Setup complete. Restart Codex and review/trust the plugin SessionStart hook for new-chat onboarding.')
     return 0
 
 
