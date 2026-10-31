@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chat Attachments"
+  short_description: "Shrink chat images while keeping full originals"
+  default_prompt: "Use $chat-attachments to show the Chat compression menu for this chat."

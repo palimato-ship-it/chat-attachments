@@ -1,0 +1,17 @@
+# Local Python environment and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Private data must never be published
+attachments/
+test-results/
+*.jsonl
+*.sqlite*
+*.log
+.env
+.env.*
+*.pem
+*.key

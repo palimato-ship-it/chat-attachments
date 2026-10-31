@@ -1,0 +1,20 @@
+{
+  "name": "peli-local",
+  "interface": {
+    "displayName": "Peli Plugins"
+  },
+  "plugins": [
+    {
+      "name": "chat-attachments",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chat-attachments"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
